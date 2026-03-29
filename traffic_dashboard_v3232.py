@@ -151,34 +151,23 @@ def met(yt, p):
     return {'R²':round(r2_score(yt,p),4), 'RMSE':round(np.sqrt(mean_squared_error(yt,p)),2),
             'MAE':round(mean_absolute_error(yt,p),2)}
 
-_load_placeholder = st.empty()
-_load_placeholder.info("⚡ Initialising TrafficIQ — loading data and training 7 models on first run. This takes 3–8 minutes once, then everything is cached instantly.")
-
 with st.spinner("⚡ Loading data & training 7 models..."):
     try:
-        _prog = st.progress(0, text="📂 Loading & preprocessing dataset...")
         df = load_data()
-        _prog.progress(25, text="🌲 Training Random Forest & Linear Regression...")
         mdls, X_tr, X_te, y_tr, y_te = train_models(df)
-        _prog.progress(90, text="📊 Computing metrics & leaderboard...")
         all_met = {n: met(y_te, p) for n,(_, p) in mdls.items()}
         lb = pd.DataFrame(all_met).T.sort_values('R²', ascending=False)
         lb.index.name = 'Model'; lb.reset_index(inplace=True)
-        _prog.progress(100, text="✅ All models ready!")
-        _prog.empty()
         loaded = True
     except FileNotFoundError:
         loaded = False
-        st.error("❌ Dataset not found. Please place 'Metro_Interstate_Traffic_Volume.csv' in the same folder as this script.")
-
-_load_placeholder.empty()
 
 MN = list(mdls.keys()) if loaded else []
 
 with st.sidebar:
     st.markdown("""<div style='padding:1rem 0 0.5rem 0;'>
         <div style='font-family:Syne,sans-serif;font-size:1.3rem;font-weight:800;color:#fff;'>Traffic<span style='color:#4fc3f7;'>IQ</span></div>
-        <div style='font-size:0.7rem;color:#5a6a80;font-family:IBM Plex Mono,monospace;letter-spacing:2px;margin-top:0.2rem;'>ML DASHBOARD v3</div>
+        <div style='font-size:0.7rem;color:#5a6a80;font-family:IBM Plex Mono,monospace;letter-spacing:2px;margin-top:0.2rem;'>ML DASHBOARD v2</div>
     </div>""", unsafe_allow_html=True)
     st.markdown("---")
     page = st.radio("", [
@@ -201,24 +190,11 @@ with st.sidebar:
             MODELS &nbsp;&nbsp; {len(mdls)}<br>BEST R² &nbsp;&nbsp; {lb.iloc[0]['R²']}<br>YEARS &nbsp;&nbsp;&nbsp; 2012–2018
         </div>""", unsafe_allow_html=True)
 
-    st.markdown("---")
-    st.markdown("<div style='text-align:center;padding:0.4rem 0;'><div style='font-size:0.68rem;color:#4fc3f7;font-family:IBM Plex Mono,monospace;letter-spacing:1px;'>BUILT BY</div><div style='font-size:1rem;font-family:Syne,sans-serif;font-weight:700;color:#ffffff;margin-top:0.2rem;'>Manav Shah</div><div style='font-size:0.65rem;color:#5a6a80;font-family:IBM Plex Mono,monospace;margin-top:0.2rem;letter-spacing:1px;'>ML PROJECT · 2026</div></div>", unsafe_allow_html=True)
-
 # ── OVERVIEW ──────────────────────────────────────────────────────────────────
 if page == "⚡ Overview":
     st.markdown("<div class='hero-badge'>🚦 Metro Interstate · Machine Learning</div><div class='hero-title'>Traffic<span> Volume</span> Prediction</div><div class='hero-sub'>7 models · 27 features · SHAP explainability · TimeSeriesSplit CV</div><br>", unsafe_allow_html=True)
     for col,(val,label,delta) in zip(st.columns(5),[("0.9853","Best R² Score","Tuned XGBoost"),("239","Best RMSE","vehicles/hr"),("0.9791","CV R² Mean","± 0.0067"),("7","Models Trained","incl. ensemble"),("72.6%","Top SHAP Feature","traffic_lag_1")]):
         with col: st.markdown(f"<div class='kpi-card'><div class='kpi-val'>{val}</div><div class='kpi-label'>{label}</div><div class='kpi-delta'>{delta}</div></div>", unsafe_allow_html=True)
-
-    # ── Native st.metric() row ──────────────────────────────────────────────
-    st.markdown("<br>", unsafe_allow_html=True)
-    mc1,mc2,mc3,mc4,mc5,mc6 = st.columns(6)
-    mc1.metric("Best R² Score",  "0.9853",  "+0.016 vs baseline")
-    mc2.metric("Best RMSE",      "239",     "-112 vs baseline")
-    mc3.metric("Best MAE",       "155",     "-43 vs baseline")
-    mc4.metric("CV R² (RF)",     "0.9791",  "± 0.0067 stable")
-    mc5.metric("Clean Rows",     "38,926",  "from 48,204 raw")
-    mc6.metric("Features Built", "27",      "from 9 original")
     st.markdown("<div class='sh'>Model Leaderboard Snapshot</div>", unsafe_allow_html=True)
     if loaded:
         for i, row in lb.iterrows():
@@ -390,18 +366,6 @@ elif page == "🔮 Live Predictor":
     else:               lv,lb_,lt="VERY HIGH",     "#2b0d0d","#ef5350"
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown(f"<div class='pred-panel'><div style='font-size:0.75rem;color:#5a6a80;font-family:IBM Plex Mono,monospace;letter-spacing:3px;margin-bottom:0.75rem;'>{sel.upper()} PREDICTION</div><div class='pred-big'>{pred_val:,}</div><div class='pred-unit'>vehicles / hour</div><div style='display:inline-block;padding:0.3rem 1.2rem;border-radius:20px;font-family:IBM Plex Mono,monospace;font-size:0.85rem;font-weight:600;margin-top:1rem;background:{lb_};color:{lt};border:1px solid {lt}40;'>{lv}</div></div>", unsafe_allow_html=True)
-    # Native Streamlit success/warning/error feedback
-    if pred_val < 1000:
-        st.success(f"✅ Predicted Traffic Volume: **{pred_val:,} vehicles/hour** — LOW TRAFFIC. Roads are clear.")
-    elif pred_val < 2500:
-        st.success(f"✅ Predicted Traffic Volume: **{pred_val:,} vehicles/hour** — LIGHT TRAFFIC. Smooth driving conditions.")
-    elif pred_val < 4000:
-        st.warning(f"⚠️ Predicted Traffic Volume: **{pred_val:,} vehicles/hour** — MODERATE TRAFFIC. Slight delays possible.")
-    elif pred_val < 5500:
-        st.warning(f"⚠️ Predicted Traffic Volume: **{pred_val:,} vehicles/hour** — HIGH TRAFFIC. Expect congestion.")
-    else:
-        st.error(f"🚨 Predicted Traffic Volume: **{pred_val:,} vehicles/hour** — VERY HIGH TRAFFIC. Significant delays expected.")
-
     st.markdown("<div class='sh'>All Models — Same Input</div>", unsafe_allow_html=True)
     all_p={n:max(0,int(m.predict(inp[FEATURES])[0])) for n,(m,_) in mdls.items()}
     pred_df=pd.DataFrame(list(all_p.items()),columns=['Model','Prediction']).sort_values('Prediction',ascending=False)
@@ -633,10 +597,20 @@ elif page == "📦 Dataset & Preprocessing":
 # ══════════════════════════════════════════════════════════════════════════════
 # FEATURE ENGINEERING PAGE
 # ══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════
+# FEATURE ENGINEERING PAGE
+# ══════════════════════════════════════════════════════════════════════════════
 elif page == "⚙️ Feature Engineering":
-    st.markdown("<div class='hero-title'>Feature <span>Engineering</span></div><div class='hero-sub'>From 9 raw columns to 27 powerful predictive features</div><br>", unsafe_allow_html=True)
 
-    # Impact KPIs
+    st.markdown(
+        "<div class='hero-title'>Feature <span>Engineering</span></div>"
+        "<div class='hero-sub'>From 9 raw columns to 27 powerful predictive features</div><br>",
+        unsafe_allow_html=True
+    )
+
+    # ─────────────────────────────────────────────
+    # KPI CARDS
+    # ─────────────────────────────────────────────
     for col, (val, label, delta) in zip(st.columns(4), [
         ("+13","Features Added","9 → 27 total"),
         ("+0.016","R² Improvement","0.9692 → 0.9847"),
@@ -644,11 +618,29 @@ elif page == "⚙️ Feature Engineering":
         ("72.6%","Best Feature SHAP","traffic_lag_1"),
     ]):
         with col:
-            st.markdown(f"<div class='kpi-card'><div class='kpi-val'>{val}</div><div class='kpi-label'>{label}</div><div class='kpi-delta'>{delta}</div></div>", unsafe_allow_html=True)
+            st.markdown(
+                f"<div class='kpi-card'>"
+                f"<div class='kpi-val'>{val}</div>"
+                f"<div class='kpi-label'>{label}</div>"
+                f"<div class='kpi-delta'>{delta}</div>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
 
     st.markdown("<br>", unsafe_allow_html=True)
-    tab1, tab2, tab3 = st.tabs(["📋 All 27 Features", "📈 Impact Analysis", "🔁 Lag Feature Detail"])
 
+    # ─────────────────────────────────────────────
+    # TABS
+    # ─────────────────────────────────────────────
+    tab1, tab2, tab3 = st.tabs([
+        "📋 All 27 Features",
+        "📈 Impact Analysis",
+        "🔁 Lag Feature Detail"
+    ])
+
+    # ─────────────────────────────────────────────
+    # TAB 1: FEATURE TABLE
+    # ─────────────────────────────────────────────
     with tab1:
         feat_table = {
             "Feature": [
@@ -689,64 +681,139 @@ elif page == "⚙️ Feature Engineering":
                 "13","8","5","7"
             ]
         }
-        feat_df = pd.DataFrame(feat_table)
-        st.dataframe(feat_df.style.apply(lambda x: [
-            'background-color: #0d1e2e; color: #4fc3f7' if v in ['Lag','Rolling'] else
-            'background-color: #1a1f2e' if v == 'Interaction' else ''
-            for v in x], subset=['Category']
-        ), use_container_width=True, hide_index=True)
 
+        feat_df = pd.DataFrame(feat_table)
+
+        st.dataframe(
+            feat_df.style.apply(
+                lambda x: [
+                    'background-color: #0d1e2e; color: #4fc3f7' if v in ['Lag','Rolling']
+                    else 'background-color: #1a1f2e' if v == 'Interaction'
+                    else ''
+                    for v in x
+                ],
+                subset=['Category']
+            ),
+            use_container_width=True,
+            hide_index=True
+        )
+
+    # ─────────────────────────────────────────────
+    # TAB 2: IMPACT ANALYSIS
+    # ─────────────────────────────────────────────
     with tab2:
         st.markdown("<div class='sh'>R² Improvement Through Feature Addition Stages</div>", unsafe_allow_html=True)
-        stages = ['Baseline\n(14 features)', 'Base + Interaction\n(19 features)', 'Base + Lag\n(27 features)', 'Final + Time Split\n(27 features, no leakage)']
+
+        stages = [
+            'Baseline\n(14 features)',
+            'Base + Interaction\n(19 features)',
+            'Base + Lag\n(27 features)',
+            'Final + Time Split\n(27 features, no leakage)'
+        ]
+
         r2_vals = [0.9692, 0.9711, 0.9847, 0.9847]
         rmse_vals = [351, 335, 245, 245]
 
-        fig = make_subplots(rows=1, cols=2, subplot_titles=['R² Score by Stage', 'RMSE by Stage'])
-        fig.add_trace(go.Bar(x=stages, y=r2_vals, marker_color=[C['s'],C['w'],C['p'],C['g']],
-            text=[f'{v:.4f}' for v in r2_vals], textposition='outside', marker_line_width=0), row=1, col=1)
-        fig.add_trace(go.Bar(x=stages, y=rmse_vals, marker_color=[C['s'],C['w'],C['p'],C['g']],
-            text=rmse_vals, textposition='outside', marker_line_width=0), row=1, col=2)
+        fig = make_subplots(rows=1, cols=2,
+            subplot_titles=['R² Score by Stage', 'RMSE by Stage'])
+
+        fig.add_trace(go.Bar(
+            x=stages, y=r2_vals,
+            marker_color=[C['s'],C['w'],C['p'],C['g']],
+            text=[f'{v:.4f}' for v in r2_vals],
+            textposition='outside'
+        ), row=1, col=1)
+
+        fig.add_trace(go.Bar(
+            x=stages, y=rmse_vals,
+            marker_color=[C['s'],C['w'],C['p'],C['g']],
+            text=rmse_vals,
+            textposition='outside'
+        ), row=1, col=2)
+
         fig.update_layout(**PT, showlegend=False)
-        fig.update_yaxes(range=[0.95, 0.992], row=1, col=1)
-        fig.update_yaxes(range=[0, 420], row=1, col=2)
         st.plotly_chart(fig, use_container_width=True)
 
+        # SHAP Pie
         st.markdown("<div class='sh'>Feature Category Contribution (SHAP)</div>", unsafe_allow_html=True)
+
         cat_shap = pd.DataFrame({
             'Category': ['Lag Features','Time Features','Rolling Features','Interaction Features','Weather Features','Encoded Features'],
             'Total SHAP': [1476.61, 596.65, 41.22, 27.54, 13.61, 1.73],
-            'Pct': [67.9, 27.4, 1.9, 1.3, 0.6, 0.1]
         })
-        fig2 = px.pie(cat_shap, names='Category', values='Total SHAP',
-            color_discrete_sequence=C['all'], title='SHAP Importance by Feature Category',
-            hole=0.4)
+
+        fig2 = px.pie(
+            cat_shap,
+            names='Category',
+            values='Total SHAP',
+            hole=0.4,
+            color_discrete_sequence=C['all']
+        )
+
         fig2.update_layout(**PT)
-        fig2.update_traces(textposition='outside', textinfo='label+percent')
         st.plotly_chart(fig2, use_container_width=True)
 
+    # ─────────────────────────────────────────────
+    # TAB 3: LAG FEATURES
+    # ─────────────────────────────────────────────
     with tab3:
         st.markdown("<div class='sh'>How Lag Features Work</div>", unsafe_allow_html=True)
-        st.markdown('<div class="ib">🔑 <b>Core Insight:</b> Traffic at hour T is highly correlated with traffic at T-1 (r ≈ 0.94). By feeding the model last hour\'s traffic as a feature, it learns to continue patterns — like a human dispatcher who knows "it was busy at 8AM so it will still be busy at 9AM".</div>', unsafe_allow_html=True)
-        st.markdown('<div class="ib">⚠️ <b>Critical Challenge:</b> The dataset has 397 time gaps (up to 307 days). A naive shift(1) across gaps would assign traffic from a completely different day as "last hour". Solution: segment-aware shifting using groupby on detected continuous segments.</div>', unsafe_allow_html=True)
 
-        st.markdown("<div class='sh'>Lag Correlation with Target</div>", unsafe_allow_html=True)
+        st.markdown(
+            '<div class="ib">🔑 Traffic at time T depends on T-1 → strong correlation (≈0.94)</div>',
+            unsafe_allow_html=True
+        )
+
+        st.markdown("<div class='sh'>Lag Correlation</div>", unsafe_allow_html=True)
+
         lag_corr = pd.DataFrame({
-            'Lag Feature': ['traffic_lag_1','traffic_lag_2','traffic_lag_3','traffic_lag_6','rolling_mean_3','rolling_mean_6'],
-            'Correlation with traffic_volume': [0.942, 0.881, 0.831, 0.714, 0.912, 0.883],
-            'SHAP Importance': [1382.53, 81.74, 9.29, 12.34, 9.63, 14.79]
+            'Lag Feature': ['traffic_lag_1','traffic_lag_2','traffic_lag_3'],
+            'Correlation': [0.942, 0.881, 0.831]
         })
-        fig3 = make_subplots(rows=1, cols=2, subplot_titles=['Pearson Correlation', 'SHAP Importance'])
-        fig3.add_trace(go.Bar(x=lag_corr['Lag Feature'], y=lag_corr['Correlation with traffic_volume'],
-            marker_color=C['p'], marker_line_width=0,
-            text=[f'{v:.3f}' for v in lag_corr['Correlation with traffic_volume']], textposition='outside'), row=1, col=1)
-        fig3.add_trace(go.Bar(x=lag_corr['Lag Feature'], y=lag_corr['SHAP Importance'],
-            marker_color=C['g'], marker_line_width=0,
-            text=[f'{v:.1f}' for v in lag_corr['SHAP Importance']], textposition='outside'), row=1, col=2)
-        fig3.update_layout(**PT, showlegend=False)
-        fig3.update_xaxes(tickangle=30)
+
+        fig3 = px.bar(lag_corr, x='Lag Feature', y='Correlation')
         st.plotly_chart(fig3, use_container_width=True)
 
+    # ─────────────────────────────────────────────
+    # DOWNLOAD SECTION (FINAL ADDITION)
+    # ─────────────────────────────────────────────
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    st.markdown(
+        "<div class='sh'>Download Engineered Dataset</div>",
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        '<div class="ib">📥 Download the final engineered dataset used for model training. '
+        'Ensures transparency and reproducibility.</div>',
+        unsafe_allow_html=True
+    )
+
+    @st.cache_data
+    def convert_df(df):
+        return df.to_csv(index=False).encode('utf-8')
+
+    download_cols = FEATURES + ['traffic_volume', 'date_time', 'year']
+    df_download = df[[c for c in download_cols if c in df.columns]].copy()
+
+    csv_bytes = convert_df(df_download)
+
+    c1, c2, c3 = st.columns([1,1,2])
+
+    with c1:
+        st.download_button(
+            label="⬇️ Download CSV",
+            data=csv_bytes,
+            file_name="metro_traffic_engineered.csv",
+            mime="text/csv"
+        )
+
+    with c2:
+        st.metric("Rows", f"{len(df_download):,}")
+
+    with c3:
+        st.metric("Columns", len(df_download.columns))
 # ══════════════════════════════════════════════════════════════════════════════
 # HYPERPARAMETER TUNING PAGE
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1017,19 +1084,3 @@ elif page == "📈 CV Analysis":
     st.markdown('<div class="ib">📈 <b>RF R² grows fold-by-fold</b> (0.9793 → 0.9868) — more training data consistently improves the model. This is the correct behaviour for a well-generalizing model.</div>', unsafe_allow_html=True)
     st.markdown('<div class="ib">⚠️ <b>LR collapses in Fold 2</b> (R²=0.842) — the 2015–16 period contains non-linear patterns that Linear Regression cannot model. RF stays above 0.967 across all folds.</div>', unsafe_allow_html=True)
     st.markdown('<div class="ib">✅ <b>RF std = ±0.007 vs LR std = ±0.036</b> — Random Forest is 5× more temporally stable, confirming it as the correct production model choice.</div>', unsafe_allow_html=True)
-
-# ── FOOTER ────────────────────────────────────────────────────────────────────
-st.markdown("---")
-st.markdown("""
-<div style='text-align:center;padding:1rem 0 0.5rem 0;'>
-    <div style='font-family:IBM Plex Mono,monospace;font-size:0.75rem;color:#5a6a80;letter-spacing:1px;'>
-        🚦 <b style='color:#4fc3f7;'>TrafficIQ</b> &nbsp;·&nbsp;
-        Metro Interstate Traffic Volume Prediction &nbsp;·&nbsp;
-        Machine Learning Project
-    </div>
-    <div style='font-size:0.7rem;color:#3a4a5c;margin-top:0.4rem;font-family:IBM Plex Mono,monospace;'>
-        7 Models &nbsp;|&nbsp; 27 Features &nbsp;|&nbsp; R² = 0.9853 &nbsp;|&nbsp;
-        XGBoost · LightGBM · Random Forest · SHAP · Streamlit · Plotly
-    </div>
-</div>
-""", unsafe_allow_html=True)
