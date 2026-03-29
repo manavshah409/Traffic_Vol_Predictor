@@ -146,13 +146,6 @@ Features:
 ├── .gitignore                           # Git ignore rules
 └── README.md                            # Project documentation
 ```
-├── data/
-├── notebooks/
-├── models/
-├── app/ (Streamlit dashboard)
-├── utils/
-└── README.md
-```
 
 ---
 
